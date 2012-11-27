@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+     http://www.springframework.org/schema/beans 
+     http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+     http://www.springframework.org/schema/context
+     http://www.springframework.org/schema/context/spring-context-3.0.xsd
+     http://www.springframework.org/schema/tx
+     http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+     http://www.springframework.org/schema/aop 
+     http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+     http://www.springframework.org/schema/mvc
+     http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd">
+
+	<context:annotation-config />
+	<context:component-scan base-package="chronicles" />
+	<mvc:annotation-driven />
+
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		lazy-init="true" autowire-candidate="true">
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<property name="maxActive" value="100" />
+		<property name="url"
+			value="jdbc:mysql://localhost:3306/chronicles?sessionVariables=storage_engine=InnoDB" />
+		<property name="username" value="root" />
+		<property name="password" value="root" />
+	</bean>
+
+	<bean id="namingStrategy" class="org.hibernate.cfg.ImprovedNamingStrategy" />
+
+	<bean id="sessionFactory"
+		class="org.springframework.orm.hibernate3.annotation.AnnotationSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">org.hibernate.dialect.MySQL5InnoDBDialect</prop>
+				<prop key="hibernate.hbm2ddl.auto">validate</prop>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">false</prop>
+				<prop key="hibernate.connection.release_mode">auto</prop>
+			</props>
+		</property>
+		<property name="namingStrategy" ref="namingStrategy" />
+		<property name="annotatedClasses">
+			<list>
+				<value>chronicles.models.Story</value>
+				<value>chronicles.models.User</value>
+				<value>chronicles.models.Tag</value>				
+				<value>chronicles.models.InappropriateFlag</value>
+				<value>chronicles.models.Comment</value>
+			</list>
+			
+		</property>
+	</bean>
+
+	<bean id="transactionManager"
+		class="org.springframework.orm.hibernate3.HibernateTransactionManager">
+		<property name="sessionFactory">
+			<ref bean="sessionFactory" />
+		</property>
+	</bean>
+
+	<tx:annotation-driven transaction-manager="transactionManager" /> 
+
+	<bean id="storyRepository" class="chronicles.repository.StoryRepository" />
+	
+	<bean id="userRepository" class="chronicles.repository.UserRepository "/>
+	
+	<bean id="commentRepository" class="chronicles.repository.CommentRepository "/>
+
+    <bean id="chroniclesDAOSupport" class="chronicles.repository.ChroniclesHibernateDAOSupport">
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+	
+	<bean id="securityContextFacade" class="chronicles.controllers.SpringSecurityContextFacade" />
+	
+	<bean id="securityContext" class="org.springframework.security.core.context.SecurityContextImpl" />
+    
+</beans>

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<project name="chronicles" basedir="." default="install">
+	<property name="deploy.dir" value="C:/tomcat/webapps"/>
+	<target name="install">
+		<unzip src="db.zip" dest="."/>
+        <ant antfile="build.db.xml" target="dbupgrade"/>
+
+		<delete dir="${deploy.dir}/chronicles"/>
+		<delete file="${deploy.dir}/chronicles.war"/>
+		<copy file="chronicles.war" todir="${deploy.dir}"/>
+
+		<delete dir="database"/>
+		<delete file="db.zip"/>
+		<delete file="chronicles.war"/>
+	</target>
+</project>

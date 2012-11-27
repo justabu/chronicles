@@ -1,0 +1,233 @@
+<?xml version="1.0"?>
+<project name="chronicles" basedir="." default="dev">
+    <property name="src.dir" value="src"/>
+    <property name="test.src" value="test"/>
+    <property name="functional.tests.src" value="FunctionalTests"/>
+    <property name="lib.dir" value="web/WEB-INF/lib"/>
+    <property name="testlib.dir" value="testlib"/>
+    <property name="dist.dir" value="dist"/>
+    <property name="src.dist.dir" value="web/WEB-INF/classes"/>
+    <property name="test.dist.dir" value="${dist.dir}/test-classes"/>
+    <property name="functionsl.test.dist.dir" value="${dist.dir}/functionaltest-classes"/>
+    <property name="web.dir" value="web"/>
+    <property name="webinf" value="${web.dir}/WEB-INF"/>
+
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+        <classpath>
+            <pathelement location="tools/ant-contrib/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
+
+    <path id="build.classpath">
+        <fileset dir="${lib.dir}" includes="**/*.jar"/>
+    </path>
+
+    <path id="test.classpath">
+        <path refid="build.classpath"/>
+        <fileset dir="${testlib.dir}" includes="**/*.jar"/>
+        <pathelement location="${src.dist.dir}"/>
+        <pathelement location="${test.dist.dir}"/>
+        <pathelement location="${functionsl.test.dist.dir}"/>
+    </path>
+
+    <target name="dev" depends="unit.test, smoke.tests"/>
+
+	<target name="make_war">
+	    <war destfile="dist/chroniclesDeployer/chronicles.war" webxml="${webinf}/web.xml">
+	      <fileset dir="${web.dir}">
+	      </fileset>
+	    </war>
+	  </target>
+	
+	<target name="make_qa_war">
+		<move file="${webinf}/security-context.xml" tofile="${webinf}/security-context-dev.xml"/>
+		<move file="${webinf}/security-context-qa.xml" tofile="${webinf}/security-context.xml"/>
+	    <war destfile="dist/chroniclesDeployer/chronicles.war" webxml="${webinf}/web.xml">
+	      <fileset dir="${web.dir}">
+	      </fileset>
+	    </war>
+		<move file="${webinf}/security-context.xml" tofile="${webinf}/security-context-qa.xml"/>
+		<move file="${webinf}/security-context-dev.xml" tofile="${webinf}/security-context.xml"/>
+	  </target>
+	  
+	<target name="package.artifacts" depends="make_qa_war">  
+	  
+		<zip destfile="dist/chroniclesDeployer/db.zip">
+            <fileset dir=".">
+                <include name="database/**"/>
+				<include name="tools/mysql-connector/**"/>
+				<include name="tools/dbdeploy-3.0M2/**"/>
+            </fileset>
+        </zip>
+
+		<zip destfile="dist/chroniclesDeployer/chronicles.zip">
+            <fileset dir="dist/chroniclesDeployer">
+                <include name="chronicles.war"/>
+                <include name="db.zip"/>
+            </fileset>
+			<fileset dir=".">
+				<include name="build.db.xml"/>
+				<include name="install.xml"/>
+				<include name="install.bat"/>
+			</fileset>
+        </zip>
+
+		<delete file="dist/ChroniclesDeployer/db.zip"/>
+		<delete file="dist/ChroniclesDeployer/chronicles.war"/>
+    </target>
+
+    <target name="clean" depends="db.clean">
+        <delete dir="${dist.dir}"/>
+        <delete dir="${src.dist.dir}"/>
+    	<delete dir="dist/chroniclesDeployer"/>
+    </target>
+
+    <target name="init" depends="db.init">
+        <mkdir dir="${src.dist.dir}"/>
+        <mkdir dir="${test.dist.dir}"/>
+    	<mkdir dir="dist/chroniclesDeployer"/>
+    </target>
+
+    <target name="compile.src" description="Compiles the source code">
+        <compile src="${src.dir}" dest="${src.dist.dir}" classpath="build.classpath"/>
+    </target>
+
+    <target name="compile.test" description="Compiles the test source code">
+        <compile src="${test.src}" dest="${test.dist.dir}" classpath="test.classpath"/>
+    </target>
+
+    <target name="build" depends="clean, init, compile.src, compile.test"/>
+
+    <target name="cruise" depends="clean, init, compile.src, compile.test, unit.test, package.artifacts"/>
+
+    <target name="quick" depends="build, start.jetty"/>
+
+    <target name="unit.test" depends="build" description="Run tests">
+        <run-tests classpath="test.classpath" build.test.dir="${test.dist.dir}" artifacts.dir="unitTestsResults"/>
+    </target>
+
+
+    <target name="compile.functionaltests">
+        <delete dir="${functionsl.test.dist.dir}" includeemptydirs="true"/>
+        <compile src="${functional.tests.src}" dest="${functionsl.test.dist.dir}" classpath="test.classpath"/>
+    </target>
+
+    <target name="db.init">
+        <ant antfile="build.db.xml" target="dbinit"/>
+    </target>
+
+    <target name="db.clean">
+        <ant antfile="build.db.xml" target="dbclean"/>
+    </target>
+
+    <target name="db.upgrade">
+        <ant antfile="build.db.xml" target="dbupgrade"/>
+    </target>
+
+    <target name="db.downgrade">
+        <ant antfile="build.db.xml" target="dbdowngrade"/>
+    </target>
+
+    <target name="start.selenium.server" depends="stop.selenium.server">
+        <ant antfile="FunctionalTests/build.xml" target="start.selenium" inheritall="false"/>
+    </target>
+    <target name="stop.selenium.server">
+        <ant antfile="FunctionalTests/build.xml" target="stop.selenium" inheritall="false"/>
+    </target>
+
+    <target name="smoke.tests" depends="compile.functionaltests,start.jetty,start.selenium.server"
+            description="Run Smoke tests">
+        <trycatch>
+            <try>
+                <sequential>
+                    <waitfor maxwait="500000">
+                        <socket server="127.0.0.1" port="8080"/>
+                    </waitfor>
+                    <run-tests classpath="test.classpath" build.test.dir="${functionsl.test.dist.dir}"
+                               artifacts.dir="smokeTestsResults"/>
+                </sequential>
+            </try>
+            <finally>
+                <antcall target="stop.selenium.server"/>
+                <antcall target="stop.jetty"/>
+            </finally>
+        </trycatch>
+    </target>
+
+
+    <!--macro defs-->
+    <macrodef name="compile">
+        <attribute name="src"/>
+        <attribute name="dest"/>
+        <attribute name="classpath"/>
+        <sequential>
+            <mkdir dir="@{dest}"/>
+            <javac fork="yes" srcdir="@{src}" destdir="@{dest}" debug="true"
+                   includes="**/*.java" memoryMaximumSize="1024m">
+                <classpath refid="@{classpath}"/>
+            </javac>
+            <copy todir="@{dest}" overwrite="true">
+                <fileset dir="@{src}" excludes="**/*.java"/>
+            </copy>
+        </sequential>
+    </macrodef>
+
+    <macrodef name="run-tests">
+        <attribute name="classpath"/>
+        <attribute name="build.test.dir"/>
+        <attribute name="artifacts.dir"/>
+
+        <element name="options" optional="true"/>
+        <sequential>
+            <delete dir="${dist.dir}/@{artifacts.dir}"/>
+            <mkdir dir="${dist.dir}/@{artifacts.dir}"/>
+
+            <junit showoutput="false" printsummary="yes" haltonfailure="false" fork="true" failureproperty="tests.failed">
+                <classpath refid="@{classpath}"/>
+                <formatter type="xml" usefile="true"/>
+                <batchtest todir="${dist.dir}/@{artifacts.dir}">
+                    <fileset dir="@{build.test.dir}" includes="**/*Tests.class"/>
+                </batchtest>
+            </junit>
+            <junitreport todir="${dist.dir}/@{artifacts.dir}">
+                <fileset dir="${dist.dir}/@{artifacts.dir}">
+                    <include name="*.xml"/>
+                </fileset>
+                <report format="frames" todir="${dist.dir}/@{artifacts.dir}"/>
+            </junitreport>
+
+            <fail if="tests.failed"/>
+
+        </sequential>
+    </macrodef>
+
+
+    <target name="deploy" depends="make_war" description="Deploy application">
+        <delete dir="tools/jetty-6.1.8/webapps/chronicles"/>
+        <delete file="tools/jetty-6.1.8/webapps/chronicles.war"/>
+        <delete dir="tools/jetty-6.1.8/webapps/cas-server-webapps-3.4.2"/>
+
+        <copy todir="tools/jetty-6.1.8/webapps/cas-server-webapp-3.4.2/" preservelastmodified="true">
+            <fileset dir="tools/cas-deployment/cas-server-webapp-3.4.2">
+                <include name="**/*.*"/>
+            </fileset>
+        </copy>
+        <copy file="dist/chroniclesDeployer/chronicles.war" todir="tools/jetty-6.1.8/webapps/" preservelastmodified="true"/>
+    </target>
+
+    <target name="start.jetty" depends="deploy, stop.jetty" description="start up jetty">
+        <java jar="tools/jetty-6.1.8/start.jar" fork="true" dir="tools/jetty-6.1.8/" spawn="true">
+            <jvmarg value="-Dfile.encoding=UTF-8"/>
+            <jvmarg value="-DSTOP.PORT=8079"/>
+            <jvmarg value="-DSTOP.KEY=secret"/>
+        </java>
+    </target>
+
+    <target name="stop.jetty" description="shutdown jetty">
+        <java jar="tools/jetty-6.1.8/start.jar" fork="true" dir="tools/jetty-6.1.8/">
+            <jvmarg value="-DSTOP.PORT=8079"/>
+            <jvmarg value="-DSTOP.KEY=secret"/>
+            <arg value="--stop"/>
+        </java>
+    </target>
+</project>

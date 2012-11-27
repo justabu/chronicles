@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<project name="chronicles" basedir="." default="start.selenium">
+
+	<target name="start.selenium" description="start up selenium" depends="stop.selenium">
+		<java jar="../tools/Selenium/selenium-remote-control-1.0.3/selenium-server-1.0.3/selenium-server.jar" fork="true" spawn="true">
+			<arg line="-multiWindow -log log/seleniumServer.log -port 4444"/>
+		</java>
+	</target>
+	 <target name="stop.selenium" description="stop selenium server">
+	            <echo>Stopping selenium server</echo>
+	            <get taskname="selenium-shutdown" dest="log/stopseleniumServer.log" ignoreerrors="true"
+	                 src="http://localhost:4444/selenium-server/driver/?cmd=shutDownSeleniumServer"/>
+	  </target>
+</project>

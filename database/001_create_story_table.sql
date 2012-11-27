@@ -1,0 +1,11 @@
+CREATE TABLE story (id BIGINT NOT NULL AUTO_INCREMENT,
+					  title VARCHAR(255) NOT NULL,
+					  year VARCHAR(4) NOT NULL,
+					  content TEXT NOT NULL,
+					  author VARCHAR(255) NOT NULL,
+					  month VARCHAR(10),
+					  PRIMARY KEY (ID)) ENGINE=INNODB;
+
+--//@UNDO
+
+DROP TABLE IF EXISTS story;
